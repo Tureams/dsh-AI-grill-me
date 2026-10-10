@@ -1,0 +1,36 @@
+{
+  "name": "dsh-detective",
+  "version": "0.1.0",
+  "description": "需求侦探（detective）：DSH 的一个可选 Agent 模式——先追问清楚、再自己把项目完整落地交付，直到用户说满意。",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "dsh-bundle",
+    "deepseek-harness",
+    "agent-preset",
+    "requirements",
+    "需求分析"
+  ],
+  "type": "module",
+  "files": [
+    "cordis.patch.yml",
+    "skills",
+    "README.md",
+    "LICENSE",
+    "设计决定.md"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Tureams/dsh-AI-grill-me.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Tureams/dsh-AI-grill-me/issues"
+  },
+  "homepage": "https://github.com/Tureams/dsh-AI-grill-me#readme",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

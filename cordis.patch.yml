@@ -1,0 +1,110 @@
+# ============================================================================
+# dsh-detective —— DSH bundle patch
+# ============================================================================
+# 这个文件把「需求侦探」插入 DSH 的模式选择器（与 标准模式 / 创造模式 并列）。
+#
+# 安装：
+#   dsh plugin --profile web add github:<owner>/dsh-detective
+#   dsh plugin --profile web add link:<本目录绝对路径>      # 本地开发
+# 卸载：
+#   dsh plugin --profile web remove dsh-detective
+#
+# 说明：本包只声明一条 @deepseek-ai/dsh-agent-preset 行，不包含 JS 代码。
+# 装在 preset 里的 skill-filesystem 只扫描本包自带的 skills/ 目录
+# （在默认根之外追加 customSkillDirs），因此这个模式不依赖工作区里任何文件。
+# ============================================================================
+
+- insert:
+    - id: preset-detective
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: detective
+        name: 需求侦探
+        description: 先追问清楚（含交付物类型与格式），确认后自己把项目完整落地交付
+        order: 5
+        plugins:
+          # ── 身份：常驻系统提示，模式的行为底色 ──────────────────────────
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              prefix: |-
+                你是「需求侦探」——本会话的默认动作是提问，不是施工，也不是给方案建议。
+                铁律一（确认前不写入）：用户明确说出「确认」「定稿」或「可以开始」之前，不创建、不修改、不删除任何文件，不执行会产生文件或改动的命令；每轮回复结尾自报一行「本轮未写入任何文件」。
+                铁律二（不替用户决定）：任何用户没有明确确认的判断，一律标注「我的推理（未确认）」并保留在《未确认清单》中；用户没有明说的选项，既不反复追问，也绝不替他填成既定事实。
+                主线：追问 → 出《推理总结／功能大纲／交付物清单／验收标准／未决问题清单》→ 等用户确认 → 自己把项目完整落地（全部文件写盘、自检、能构建能运行、附交付说明）。
+                独立性：不要主动翻工作区里与本次无关的内容；可以读本次对话相关的、以及用户指定给你的内容。
+                节奏：每轮问几个问题由你自适应判断；追问不设固定上限，但每满十轮（一问一答算一轮）必须强制产出初版交付，可以先交付初版再继续问。
+                验收：交付后追问用户，只有用户说「满意」才算成功；用户不满意就继续改。
+                细节、提问清单与模板：加载 skill「detective」按其执行手册办事；未加载时先加载它。
+              suffix: Your working directory is {{cwd}}.
+          - id: agent-instructions
+            name: '@deepseek-ai/dsh-agent-instructions'
+            config:
+              maxBytes: 65536
+
+          # ── 工具：问、看、写、跑 ────────────────────────────────────────
+          - id: tool-bash
+            name: '@deepseek-ai/dsh-tool-bash'
+            disabled: !!js process.platform === 'win32'
+          - id: tool-pwsh
+            name: '@deepseek-ai/dsh-tool-pwsh'
+            disabled: !!js process.platform !== 'win32'
+          - id: tool-fs
+            name: '@deepseek-ai/dsh-tool-fs'
+          - id: tool-fs-search
+            name: '@deepseek-ai/dsh-tool-fs-search'
+            config:
+              sampleOverCapGlobResults: false
+          - id: tool-jobs
+            name: '@deepseek-ai/dsh-tool-jobs'
+          - id: command-goal
+            name: '@deepseek-ai/dsh-command-goal'
+          - id: tool-goal
+            name: '@deepseek-ai/dsh-tool-goal'
+
+          # ── 技能：只挂本包自带的 skills/ ────────────────────────────────
+          - id: skill-filesystem
+            name: '@deepseek-ai/dsh-skill-filesystem'
+            config:
+              customSkillDirs:
+                - !!js process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:path').dirname(process.getBuiltinModule('node:module').createRequire(baseUrl).resolve('dsh-detective/package.json')), 'skills')
+          - id: tool-skill
+            name: '@deepseek-ai/dsh-tool-skill'
+
+          # ── 上下文管理 ──────────────────────────────────────────────────
+          - id: compaction
+            name: cordis:group
+            group: true
+            isolate:
+              compaction: true
+              toolResultPruner: true
+            config:
+              - id: compaction-basic
+                name: '@deepseek-ai/dsh-compaction-basic'
+              - id: command-compact
+                name: '@deepseek-ai/dsh-command-compact'
+              - id: tool-result-pruner
+                name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+                config:
+                  thresholdChars: 8192
+                  headChars: 4096
+                  tailChars: 1024
+
+          # 注意：本模式按用户选定的「方案乙」实现确认门禁——不挂 plan-mode，
+          # 门禁由上面 persona 与 skills/detective/SKILL.md 的规则承担。
+          - id: tool-ask-user
+            name: '@deepseek-ai/dsh-tool-ask-user'
+          - id: tool-todo
+            name: '@deepseek-ai/dsh-tool-todo'
+            config:
+              allowParallelInProgress: true
+          - id: tool-web
+            name: '@deepseek-ai/dsh-tool-web'
+            config:
+              fetch: true
+              searchTimeoutMs: 60000
+          - id: present
+            name: '@deepseek-ai/dsh-tool-present'
+          - id: tool-plugin-manager
+            name: '@deepseek-ai/dsh-plugin-manager/tools'
+            disabled: !!js "!ctx.get('profileContext')"
